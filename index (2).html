@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#1e293b">
+    
+    <title>진성디지털 - 여수 학교 실시간 A/S 관리</title>
+    
+    <!-- Firebase SDK (실시간 데이터베이스 연동) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: #f1f5f9;
+            color: #1e293b;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 480px;
+            background: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.05);
+        }
+
+        header {
+            background-color: #1e293b;
+            color: #ffffff;
+            padding: 20px 20px 16px;
+            text-align: center;
+            border-bottom-left-radius: 16px;
+            border-bottom-right-radius: 16px;
+        }
+
+        header h1 {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        header p {
+            font-size: 12px;
+            color: #94a3b8;
+        }
+
+        .main-content {
+            padding: 20px;
+            flex: 1;
+        }
+
+        .search-box {
+            position: relative;
+            margin-bottom: 8px;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 14px 16px;
+            font-size: 16px;
+            border: 2px solid #cbd5e1;
+            border-radius: 12px;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            background-color: #f8fafc;
+        }
+
+        .search-box input:focus {
+            border-color: #2563eb;
+            background-color: #ffffff;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .search-tip {
+            font-size: 11px;
+            color: #64748b;
+            text-align: right;
+            margin-bottom: 16px;
+        }
+
+        .result-card {
+            display: none;
+            border-radius: 12px;
+            padding: 16px;
+            border: 1px solid #e2e8f0;
+            background-color: #ffffff;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            animation: slideUp 0.25s ease-out;
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .header-result {
+            text-align: center;
+            padding-bottom: 12px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 6px 14px;
+            font-size: 12px;
+            font-weight: 700;
+            border-radius: 20px;
+            margin-bottom: 8px;
+            color: #ffffff;
+        }
+
+        .badge-jinsung { background-color: #2563eb; }
+        .badge-office { background-color: #059669; }
+
+        .school-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .as-section {
+            display: none;
+            margin-top: 12px;
+            border-top: 1px dashed #cbd5e1;
+            padding-top: 14px;
+        }
+
+        .as-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .as-header h3 {
+            font-size: 14px;
+            color: #334155;
+        }
+
+        .btn-add {
+            background-color: #2563eb;
+            color: #ffffff;
+            border: none;
+            padding: 6px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .as-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .as-item {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 13px;
+        }
+
+        .as-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .as-date {
+            font-weight: 700;
+            color: #2563eb;
+        }
+
+        .as-engineer {
+            color: #64748b;
+            font-size: 11px;
+        }
+
+        .as-content {
+            color: #334155;
+            line-height: 1.4;
+            word-break: break-all;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 4px;
+            margin-top: 6px;
+        }
+
+        .btn-edit {
+            background-color: #f59e0b;
+            color: #ffffff;
+            border: none;
+            padding: 3px 8px;
+            font-size: 11px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .btn-delete {
+            background-color: #ef4444;
+            color: #ffffff;
+            border: none;
+            padding: 3px 8px;
+            font-size: 11px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .no-result {
+            display: none;
+            text-align: center;
+            color: #ef4444;
+            font-size: 13px;
+            padding: 20px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(2px);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            padding: 20px;
+        }
+
+        .modal-content {
+            background: #ffffff;
+            padding: 20px;
+            border-radius: 16px;
+            width: 100%;
+            max-width: 360px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        .modal-content h3 {
+            margin-bottom: 12px;
+            font-size: 16px;
+            color: #0f172a;
+        }
+
+        .form-group {
+            margin-bottom: 10px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 11px;
+            color: #64748b;
+            margin-bottom: 4px;
+        }
+
+        .form-group input, .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            font-size: 14px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            outline: none;
+            background-color: #f8fafc;
+        }
+
+        .modal-btns {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+        }
+
+        .btn-save {
+            flex: 1;
+            background-color: #2563eb;
+            color: #ffffff;
+            border: none;
+            padding: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .btn-cancel {
+            flex: 1;
+            background-color: #94a3b8;
+            color: #ffffff;
+            border: none;
+            padding: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <header>
+        <h1>진성디지털 사이트 구분</h1>
+        <p>여수 지역 학교 소속 판별 및 실시간 A/S 공유</p>
+    </header>
+
+    <div class="main-content">
+        <div class="search-box">
+            <input type="text" id="schoolInput" placeholder="학교 이름 입력 (예: 진남중, 백초초...)" oninput="handleInput()" onkeypress="handleKeyPress(event)" autocomplete="off">
+        </div>
+        <div class="search-tip">↵ Enter 키를 누르면 A/S 목록이 출력됩니다.</div>
+
+        <div id="resultCard" class="result-card">
+            <div class="header-result">
+                <span id="typeBadge" class="badge"></span>
+                <div id="schoolName" class="school-title">-</div>
+            </div>
+
+            <div id="asSection" class="as-section">
+                <div class="as-header">
+                    <h3>🛠 실시간 A/S 조치 이력</h3>
+                    <button class="btn-add" onclick="openAddModal()">+ 추가</button>
+                </div>
+                <div id="asList" class="as-list"></div>
+            </div>
+        </div>
+
+        <div id="noResult" class="no-result">
+            검색 결과가 없습니다. 학교명을 확인해 주세요.
+        </div>
+    </div>
+</div>
+
+<div id="asModal" class="modal">
+    <div class="modal-content">
+        <h3 id="modalTitle">A/S 이력 등록</h3>
+        <input type="hidden" id="editKey" value="">
+        <div class="form-group">
+            <label>점검 일자</label>
+            <input type="date" id="modalDate">
+        </div>
+        <div class="form-group">
+            <label>담당 기사명</label>
+            <input type="text" id="modalEngineer" placeholder="예: 김철수 기사">
+        </div>
+        <div class="form-group">
+            <label>조치 및 처리 내용</label>
+            <textarea id="modalContent" rows="3" placeholder="처리 내역 입력"></textarea>
+        </div>
+        <div class="modal-btns">
+            <button class="btn-save" onclick="saveAsItem()">저장</button>
+            <button class="btn-cancel" onclick="closeModal()">취소</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 전달해주신 Firebase 설정 정보 적용 완료
+    const firebaseConfig = {
+        apiKey: "AIzaSyBKzQRpRJbybbxV2Z1E5pfQyJRAYoLLlRI",
+        authDomain: "jinsung-7995d.firebaseapp.com",
+        databaseURL: "https://jinsung-7995d-default-rtdb.firebaseio.com",
+        projectId: "jinsung-7995d",
+        storageBucket: "jinsung-7995d.firebasestorage.app",
+        messagingSenderId: "704344969737",
+        appId: "1:704344969737:web:e731b398475a0cf9a4ded8",
+        measurementId: "G-DPTE497N8H"
+    };
+
+    // Firebase 초기화
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+
+    const officeSchoolList = [
+        { fullName: "백초초등학교", shortName: "백초초" },
+        { fullName: "동백초등학교", shortName: "동백초" },
+        { fullName: "진남초등학교", shortName: "진남초" },
+        { fullName: "여수교육지원청", shortName: "교육지원청" },
+        { fullName: "종고초등학교", shortName: "종고초" },
+        { fullName: "안일초등학교", shortName: "안일초" },
+        { fullName: "돌산중학교", shortName: "돌산중" },
+        { fullName: "돌산초등학교", shortName: "돌산초" },
+        { fullName: "돌산중앙중학교", shortName: "돌산중앙중" },
+        { fullName: "봉덕초등학교", shortName: "봉덕초" },
+        { fullName: "소라초등학교", shortName: "소라초" },
+        { fullName: "성산유치원", shortName: "성산유치원" },
+        { fullName: "무선초등학교", shortName: "무선초" },
+        { fullName: "무선중학교", shortName: "무선중" },
+        { fullName: "신풍초등학교", shortName: "신풍초" },
+        { fullName: "율촌초등학교", shortName: "율촌초" },
+        { fullName: "율촌중학교", shortName: "율촌중" },
+        { fullName: "봉산초등학교", shortName: "봉산초" },
+        { fullName: "남산초등학교", shortName: "남산초" },
+        { fullName: "여수서초등학교", shortName: "서초" },
+        { fullName: "여수남초등학교", shortName: "남초" },
+        { fullName: "구봉중학교", shortName: "구봉중" },
+        { fullName: "예울초등학교", shortName: "예울초" },
+        { fullName: "관기초등학교", shortName: "관기초" },
+        { fullName: "나진초등학교", shortName: "나진초" },
+        { fullName: "화양초등학교", shortName: "화양초" },
+        { fullName: "화양중학교", shortName: "화양중" },
+        { fullName: "안심초등학교", shortName: "안심초" },
+        { fullName: "시전초등학교", shortName: "시전초" },
+        { fullName: "미평초등학교", shortName: "미평초" },
+        { fullName: "진남중학교", shortName: "진남중" },
+        { fullName: "여수북초등학교", shortName: "북초" },
+        { fullName: "문수초등학교", shortName: "문수초" },
+        { fullName: "좌수영초등학교", shortName: "좌수영초" },
+        { fullName: "송현초등학교", shortName: "송현초" },
+        { fullName: "여남초등학교", shortName: "여남초" },
+        { fullName: "여남중학교", shortName: "여남중" },
+        { fullName: "여남고등학교", shortName: "여남고" },
+        { fullName: "거문초등학교", shortName: "거문초" },
+        { fullName: "거문중학교", shortName: "거문중" },
+        { fullName: "화정초등학교", shortName: "화정초" },
+        { fullName: "개도중학교", shortName: "개도중" },
+        { fullName: "경호초등학교", shortName: "경호초" },
+        { fullName: "돌산초등학교 두라분교장", shortName: "두라분교" },
+        { fullName: "여수여자고등학교", shortName: "여수여고" }
+    ];
+
+    let currentSchool = null;
+
+    function handleInput() {
+        const query = document.getElementById('schoolInput').value.trim();
+        const resultCard = document.getElementById('resultCard');
+        const noResult = document.getElementById('noResult');
+        const asSection = document.getElementById('asSection');
+
+        asSection.style.display = "none";
+        if (currentSchool) {
+            database.ref('as_history/' + sanitizePath(currentSchool)).off();
+        }
+
+        if (query === "") {
+            resultCard.style.display = "none";
+            noResult.style.display = "none";
+            currentSchool = null;
+            return;
+        }
+
+        const matchedOffice = officeSchoolList.find(item => 
+            item.fullName.includes(query) || 
+            item.shortName.includes(query) || 
+            query.includes(item.shortName)
+        );
+
+        if (matchedOffice) {
+            currentSchool = matchedOffice.fullName;
+            showResult(matchedOffice.fullName, "교육청 관리 사이트", "badge-office");
+        } else {
+            currentSchool = query.endsWith("고") || query.endsWith("중") || query.endsWith("초") ? query : query + " (직속)";
+            showResult(currentSchool, "진성디지털 직속 사이트", "badge-jinsung");
+        }
+    }
+
+    function sanitizePath(str) {
+        return str.replace(/[.#$\[\]]/g, "_");
+    }
+
+    function showResult(title, badgeText, badgeClass) {
+        document.getElementById('schoolName').innerText = title;
+        const badge = document.getElementById('typeBadge');
+        badge.innerText = badgeText;
+        badge.className = "badge " + badgeClass;
+        document.getElementById('resultCard').style.display = "block";
+        document.getElementById('noResult').style.display = "none";
+    }
+
+    function handleKeyPress(event) {
+        if (event.key === "Enter") {
+            if (currentSchool) {
+                listenRealtimeAsList();
+                document.getElementById('asSection').style.display = "block";
+            }
+        }
+    }
+
+    function listenRealtimeAsList() {
+        const safePath = sanitizePath(currentSchool);
+        const ref = database.ref('as_history/' + safePath);
+
+        ref.on('value', (snapshot) => {
+            const data = snapshot.val();
+            const container = document.getElementById('asList');
+            container.innerHTML = "";
+
+            if (!data) {
+                container.innerHTML = "<div style='color:#94a3b8; text-align:center; padding:12px; font-size:12px;'>등록된 A/S 이력이 없습니다.</div>";
+                return;
+            }
+
+            const keys = Object.keys(data).reverse();
+            keys.forEach((key) => {
+                const item = data[key];
+                const div = document.createElement('div');
+                div.className = "as-item";
+                div.innerHTML = `
+                    <div class="as-item-header">
+                        <span class="as-date">${item.date}</span>
+                        <span class="as-engineer">${item.engineer}</span>
+                    </div>
+                    <div class="as-content">${item.content}</div>
+                    <div class="btn-group">
+                        <button class="btn-edit" onclick="openEditModal('${key}', '${item.date}', '${item.engineer}', '${escapeHtml(item.content)}')">수정</button>
+                        <button class="btn-delete" onclick="deleteAsItem('${key}')">삭제</button>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        });
+    }
+
+    function escapeHtml(str) {
+        return str.replace(/'/g, "\\'").replace(/"/g, "&quot;");
+    }
+
+    function deleteAsItem(key) {
+        if (confirm("해당 A/S 이력을 삭제하시겠습니까?")) {
+            const safePath = sanitizePath(currentSchool);
+            database.ref('as_history/' + safePath + '/' + key).remove();
+        }
+    }
+
+    function openAddModal() {
+        document.getElementById('modalTitle').innerText = `${currentSchool} A/S 추가`;
+        document.getElementById('editKey').value = "";
+        document.getElementById('modalDate').value = new Date().toISOString().substring(0, 10);
+        document.getElementById('modalEngineer').value = "";
+        document.getElementById('modalContent').value = "";
+        document.getElementById('asModal').style.display = "flex";
+    }
+
+    function openEditModal(key, date, engineer, content) {
+        document.getElementById('modalTitle').innerText = `${currentSchool} A/S 수정`;
+        document.getElementById('editKey').value = key;
+        document.getElementById('modalDate').value = date;
+        document.getElementById('modalEngineer').value = engineer;
+        document.getElementById('modalContent').value = content;
+        document.getElementById('asModal').style.display = "flex";
+    }
+
+    function closeModal() {
+        document.getElementById('asModal').style.display = "none";
+    }
+
+    function saveAsItem() {
+        const key = document.getElementById('editKey').value;
+        const date = document.getElementById('modalDate').value;
+        const engineer = document.getElementById('modalEngineer').value.trim();
+        const content = document.getElementById('modalContent').value.trim();
+
+        if (!date || !engineer || !content) {
+            alert("모든 필드를 입력해 주세요.");
+            return;
+        }
+
+        const safePath = sanitizePath(currentSchool);
+        const ref = database.ref('as_history/' + safePath);
+
+        if (key === "") {
+            ref.push({ date, engineer, content });
+        } else {
+            ref.child(key).update({ date, engineer, content });
+        }
+
+        closeModal();
+    }
+</script>
+
+</body>
+</html>
